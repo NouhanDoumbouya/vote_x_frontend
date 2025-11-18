@@ -1,10 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Home } from './components/Home';
 import { PollDetail } from './components/PollDetail';
 import { CreatePoll } from './components/CreatePoll';
+import { getPolls, createPoll} from './lib/polls';
+
+// ------------------------------
+// TYPES
+// ------------------------------
+export type PollOption = {
+  id: number;
+  text: string;
+  votes: number;
+};
 
 export type Poll = {
-  id: string;
+  id: number;
   title: string;
   description: string;
   endsIn: string;
@@ -12,127 +22,108 @@ export type Poll = {
   options: PollOption[];
   totalVotes: number;
   createdAt: Date;
-};
-
-export type PollOption = {
-  id: string;
-  text: string;
-  votes: number;
+  isLocal?: boolean;
 };
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'home' | 'poll-detail' | 'create-poll'>('home');
-  const [selectedPollId, setSelectedPollId] = useState<string | null>(null);
+  const [selectedPollId, setSelectedPollId] = useState<number | null>(null);
 
+  // -----------------------------------------
+  // DEMO POLLS (kept for UI richness)
+  // -----------------------------------------
   const [polls, setPolls] = useState<Poll[]>([
     {
-      id: '1',
-      title: 'AI Club President Election',
-      description: 'Vote for your preferred candidate to lead the AI Club next semester. This is an important decision that will shape our club\'s future direction.',
-      endsIn: '2 days',
-      category: 'Education',
+      id: 1,
+      title: "AI Club President Election",
+      description:
+        "Vote for your preferred candidate to lead the AI Club next semester. This is an important decision that will shape our club's future direction.",
+      endsIn: "2 days",
+      category: "Education",
       options: [
-        { id: '1a', text: 'Sarah Chen - Focus on Research & Publications', votes: 45 },
-        { id: '1b', text: 'Marcus Johnson - Industry Partnerships', votes: 32 },
-        { id: '1c', text: 'Emily Rodriguez - Community Outreach', votes: 28 },
+        { id: 11, text: "Sarah Chen - Focus on Research & Publications", votes: 45 },
+        { id: 12, text: "Marcus Johnson - Industry Partnerships", votes: 32 },
+        { id: 13, text: "Emily Rodriguez - Community Outreach", votes: 28 },
       ],
       totalVotes: 105,
-      createdAt: new Date('2025-11-10'),
+      createdAt: new Date("2025-11-10"),
+      isLocal: true,
     },
     {
-      id: '2',
-      title: 'Best Programming Language 2025',
-      description: 'Which programming language do you think will dominate in 2025? Share your prediction based on current trends.',
-      endsIn: '5 days',
-      category: 'Technology',
+      id: 2,
+      title: "Best Programming Language 2025",
+      description:
+        "Which programming language do you think will dominate in 2025? Share your prediction based on current trends.",
+      endsIn: "5 days",
+      category: "Technology",
       options: [
-        { id: '2a', text: 'Python', votes: 67 },
-        { id: '2b', text: 'JavaScript', votes: 54 },
-        { id: '2c', text: 'Rust', votes: 42 },
-        { id: '2d', text: 'Go', votes: 31 },
+        { id: 21, text: "Python", votes: 67 },
+        { id: 22, text: "JavaScript", votes: 54 },
+        { id: 23, text: "Rust", votes: 42 },
+        { id: 24, text: "Go", votes: 31 },
       ],
       totalVotes: 194,
-      createdAt: new Date('2025-11-08'),
-    },
-    {
-      id: '3',
-      title: 'Campus Food Court Options',
-      description: 'What new restaurant should we add to the campus food court? Your vote will help administration make this decision.',
-      endsIn: '3 days',
-      category: 'Food & Dining',
-      options: [
-        { id: '3a', text: 'Sushi Bar', votes: 89 },
-        { id: '3b', text: 'Mexican Grill', votes: 76 },
-        { id: '3c', text: 'Vegan Cafe', votes: 54 },
-        { id: '3d', text: 'Pizza Place', votes: 62 },
-      ],
-      totalVotes: 281,
-      createdAt: new Date('2025-11-09'),
-    },
-    {
-      id: '4',
-      title: 'Study Session Time Preference',
-      description: 'When should we schedule our weekly group study sessions? Choose the time that works best for your schedule.',
-      endsIn: '1 day',
-      category: 'Education',
-      options: [
-        { id: '4a', text: 'Monday Evening (6-8 PM)', votes: 23 },
-        { id: '4b', text: 'Wednesday Afternoon (3-5 PM)', votes: 31 },
-        { id: '4c', text: 'Friday Morning (10-12 PM)', votes: 18 },
-      ],
-      totalVotes: 72,
-      createdAt: new Date('2025-11-11'),
-    },
-    {
-      id: '5',
-      title: 'Next Hackathon Theme',
-      description: 'Choose the theme for our upcoming 48-hour hackathon event. This will determine the focus and prizes.',
-      endsIn: '7 days',
-      category: 'Events',
-      options: [
-        { id: '5a', text: 'AI & Machine Learning', votes: 112 },
-        { id: '5b', text: 'Sustainability Tech', votes: 87 },
-        { id: '5c', text: 'FinTech Innovation', votes: 65 },
-      ],
-      totalVotes: 264,
-      createdAt: new Date('2025-11-05'),
-    },
-    {
-      id: '6',
-      title: 'Favorite IDE',
-      description: 'What\'s your go-to integrated development environment? We\'re gathering data for a developer tools workshop.',
-      endsIn: '4 days',
-      category: 'Technology',
-      options: [
-        { id: '6a', text: 'VS Code', votes: 156 },
-        { id: '6b', text: 'IntelliJ IDEA', votes: 43 },
-        { id: '6c', text: 'Vim', votes: 28 },
-        { id: '6d', text: 'Sublime Text', votes: 19 },
-      ],
-      totalVotes: 246,
-      createdAt: new Date('2025-11-07'),
+      createdAt: new Date("2025-11-08"),
+      isLocal: true,
     },
   ]);
 
-  const [userVotes, setUserVotes] = useState<Record<string, string>>({});
+  // -----------------------------------------
+  // USER VOTES (pollId → optionId)
+  // -----------------------------------------
+  const [userVotes, setUserVotes] = useState<Record<number, number>>({});
 
-  const handleVote = (pollId: string, optionId: string) => {
+  // -----------------------------------------
+  // LOAD BACKEND POLLS
+  // -----------------------------------------
+  useEffect(() => {
+    async function loadBackendPolls() {
+      try {
+        const backend = await getPolls();
+
+        const formatted: Poll[] = backend.map((bp) => ({
+          id: bp.id,
+          title: bp.title,
+          description: bp.description,
+          endsIn: bp.ends_in,
+          category: bp.category || "General",
+          totalVotes: bp.total_votes,
+          options: bp.options.map((o) => ({
+            id: o.id,
+            text: o.text,
+            votes: o.votes,
+          })),
+          createdAt: new Date(bp.created_at),
+          isLocal: false,
+        }));
+
+        // Backend polls first
+        setPolls((prev) => [...formatted, ...prev]);
+      } catch (error) {
+        console.error("Failed to load backend polls:", error);
+      }
+    }
+
+    loadBackendPolls();
+  }, []);
+
+  // -----------------------------------------
+  // VOTING LOGIC
+  // -----------------------------------------
+  const handleVote = (pollId: number, optionId: number) => {
     setPolls((prevPolls) =>
       prevPolls.map((poll) => {
         if (poll.id !== pollId) return poll;
 
         const previousVote = userVotes[pollId];
-        
+
         return {
           ...poll,
-          options: poll.options.map((option) => {
-            if (option.id === optionId) {
-              return { ...option, votes: option.votes + 1 };
-            }
-            if (previousVote && option.id === previousVote) {
-              return { ...option, votes: Math.max(0, option.votes - 1) };
-            }
-            return option;
+          options: poll.options.map((opt) => {
+            if (opt.id === optionId) return { ...opt, votes: opt.votes + 1 };
+            if (previousVote && opt.id === previousVote)
+              return { ...opt, votes: Math.max(0, opt.votes - 1) };
+            return opt;
           }),
           totalVotes: previousVote ? poll.totalVotes : poll.totalVotes + 1,
         };
@@ -142,49 +133,109 @@ export default function App() {
     setUserVotes((prev) => ({ ...prev, [pollId]: optionId }));
   };
 
-  const handleCreatePoll = (pollData: { title: string; description: string; options: string[]; duration: string; category: string }) => {
-    const newPoll: Poll = {
-      id: Date.now().toString(),
-      title: pollData.title,
-      description: pollData.description,
-      endsIn: pollData.duration,
-      category: pollData.category,
-      options: pollData.options.map((option, index) => ({
-        id: `${Date.now()}-${index}`,
-        text: option,
-        votes: 0,
-      })),
-      totalVotes: 0,
-      createdAt: new Date(),
-    };
+  // -----------------------------------------
+  // LOCAL POLL CREATION
+  // -----------------------------------------
+const handleCreatePoll = async (data: {
+  title: string;
+  description: string;
+  options: string[];
+  duration: string;
+  category: string;
+}) => {
+  // Convert “3 days” → real ISO timestamp
+  const now = new Date();
+  const expiration = new Date(now);
 
-    setPolls((prev) => [newPoll, ...prev]);
-    setCurrentView('home');
+  const durationMap: Record<string, number> = {
+    "1 day": 1, "2 days": 2, "3 days": 3, "5 days": 5,
+    "1 week": 7, "2 weeks": 14,
+    "1 month": 30,
   };
 
-  const handlePollClick = (pollId: string) => {
+  const days = durationMap[data.duration] || 3;
+  expiration.setDate(now.getDate() + days);
+
+  try {
+    // Define the backend types and cast the unknown result to them
+    type BackendOption = {
+      id: number;
+      text: string;
+      votes: number;
+    };
+
+    type BackendPoll = {
+      id: number;
+      title: string;
+      description: string;
+      ends_in: string;
+      category: string;
+      options: BackendOption[];
+      total_votes: number;
+      created_at: string;
+    };
+
+    const backendPoll = (await createPoll({
+      title: data.title,
+      description: data.description,
+      category: data.category,
+      expires_at: expiration.toISOString(),
+      visibility: "public",
+      allow_guest_votes: true,
+      options: data.options,
+    })) as BackendPoll;
+
+    // Format into frontend shape
+    const formatted: Poll = {
+      id: backendPoll.id,
+      title: backendPoll.title,
+      description: backendPoll.description,
+      endsIn: backendPoll.ends_in,
+      category: backendPoll.category,
+      options: backendPoll.options.map((o) => ({
+        id: o.id,
+        text: o.text,
+        votes: o.votes,
+      })),
+      totalVotes: backendPoll.total_votes,
+      createdAt: new Date(backendPoll.created_at),
+      isLocal: false,
+    };
+
+    // Add new poll at top
+    setPolls((prev) => [formatted, ...prev]);
+
+    setCurrentView("home");
+  } catch (err) {
+    console.error("Failed to create poll:", err);
+    alert("Failed to create poll");
+  }
+};
+
+
+  // -----------------------------------------
+  // NAVIGATION
+  // -----------------------------------------
+  const handlePollClick = (pollId: number) => {
     setSelectedPollId(pollId);
-    setCurrentView('poll-detail');
+    setCurrentView("poll-detail");
   };
 
   const handleBackToHome = () => {
-    setCurrentView('home');
     setSelectedPollId(null);
+    setCurrentView("home");
   };
 
   const handleNavigate = (view: string) => {
-    if (view === 'home') {
-      handleBackToHome();
-    } else if (view === 'create-poll') {
-      setCurrentView('create-poll');
-    }
+    if (view === "home") handleBackToHome();
+    else if (view === "create-poll") setCurrentView("create-poll");
   };
 
-  const selectedPoll = polls.find((poll) => poll.id === selectedPollId);
+  const selectedPoll = polls.find((p) => p.id === selectedPollId);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      {currentView === 'home' && (
+      {currentView === "home" && (
         <Home
           polls={polls}
           userVotes={userVotes}
@@ -192,7 +243,8 @@ export default function App() {
           onNavigate={handleNavigate}
         />
       )}
-      {currentView === 'poll-detail' && selectedPoll && (
+
+      {currentView === "poll-detail" && selectedPoll && (
         <PollDetail
           poll={selectedPoll}
           userVote={userVotes[selectedPoll.id]}
@@ -200,11 +252,9 @@ export default function App() {
           onBack={handleBackToHome}
         />
       )}
-      {currentView === 'create-poll' && (
-        <CreatePoll
-          onCreatePoll={handleCreatePoll}
-          onBack={handleBackToHome}
-        />
+
+      {currentView === "create-poll" && (
+        <CreatePoll onCreatePoll={handleCreatePoll} onBack={handleBackToHome} />
       )}
     </div>
   );

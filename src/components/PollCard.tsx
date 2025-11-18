@@ -4,26 +4,30 @@ import { Clock, Users, CheckCircle2, TrendingUp, Tag } from 'lucide-react';
 type PollCardProps = {
   poll: Poll;
   hasVoted: boolean;
-  onClick: () => void;
+  onClick: (pollId: number) => void; // UPDATED
 };
 
 export function PollCard({ poll, hasVoted, onClick }: PollCardProps) {
-  const topOption = poll.options.reduce((prev, current) => 
-    (current.votes > prev.votes) ? current : prev
-  );
+  const topOption =
+    poll.options.length > 0
+      ? poll.options.reduce((prev, current) =>
+          current.votes > prev.votes ? current : prev
+        )
+      : null;
 
-  const topPercentage = poll.totalVotes > 0 
-    ? ((topOption.votes / poll.totalVotes) * 100).toFixed(0)
-    : 0;
+  const topPercentage =
+    poll.totalVotes > 0 && topOption
+      ? ((topOption.votes / poll.totalVotes) * 100).toFixed(0)
+      : 0;
 
   return (
-    <div 
-      onClick={onClick}
+    <div
+      onClick={() => onClick(poll.id)} // UPDATED
       className="group relative bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-blue-500/50 transition-all cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/10"
     >
       {/* Gradient overlay on hover */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-purple-500/0 group-hover:from-blue-500/5 group-hover:to-purple-500/5 rounded-2xl transition-all" />
-      
+
       <div className="relative flex flex-col h-full">
         {/* Category Badge */}
         <div className="flex items-center justify-between mb-4">
@@ -42,7 +46,7 @@ export function PollCard({ poll, hasVoted, onClick }: PollCardProps) {
         <h3 className="text-white mb-3 line-clamp-2 group-hover:text-blue-400 transition-colors">
           {poll.title}
         </h3>
-        
+
         {/* Poll Description */}
         <p className="text-slate-400 text-sm mb-4 line-clamp-2">
           {poll.description}
@@ -61,7 +65,7 @@ export function PollCard({ poll, hasVoted, onClick }: PollCardProps) {
         </div>
 
         {/* Leading Option */}
-        {poll.totalVotes > 0 && (
+        {poll.totalVotes > 0 && topOption && (
           <div className="mb-4 p-3 bg-white/5 rounded-lg border border-white/5">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-slate-400">Leading</span>
