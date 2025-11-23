@@ -1,3 +1,4 @@
+// src/lib/polls.ts
 import api from "./api";
 
 export interface PollOption {
@@ -52,5 +53,11 @@ export async function createPoll(data: {
   options: string[];
 }) {
   const res = await api.post("/api/polls/", data);
+  return res.data;
+}
+
+// ⭐ NEW — submit vote to backend
+export async function submitVote(optionId: number) {
+  const res = await api.post("/api/votes/", { option: optionId });
   return res.data;
 }
