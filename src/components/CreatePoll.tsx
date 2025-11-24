@@ -12,6 +12,8 @@ import {
   UserPlus,
   Trash2,
 } from "lucide-react";
+import api from "../lib/api";
+import toast from "react-hot-toast";
 
 type CreatePollProps = {
   onCreatePoll: (pollData: {
@@ -104,23 +106,39 @@ export function CreatePoll({ onCreatePoll, onBack }: CreatePollProps) {
   };
 
   /** Add allowed email */
-  const addAllowedUser = () => {
+  const addAllowedUser = async () => {
     const email = newAllowedEmail.trim().toLowerCase();
     if (!email) return;
 
-    if (!email.includes("@")) {
-      alert("Please enter a valid email");
-      return;
-    }
+    type LookupResponse = {
+      exists: boolean;
+      email: string;
+      username: string;
+    };
 
-    if (allowedUsers.includes(email)) {
-      alert("User already added");
-      return;
-    }
+    try {
+      const res = await api.get<LookupResponse>(
+        `api/auth/lookup/?email=${encodeURIComponent(email)}`
+      );
 
-    setAllowedUsers([...allowedUsers, email]);
-    setNewAllowedEmail("");
+      if (!res.data.exists) {
+        toast.error("This email does not match any registered user.");
+        return;
+      }
+
+      if (allowedUsers.includes(email)) {
+        toast.error("User already added.");
+        return;
+      }
+
+      setAllowedUsers([...allowedUsers, email]);
+      setNewAllowedEmail("");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to lookup user.");
+    }
   };
+
 
   /** Remove allowed email */
   const removeAllowedUser = (email: string) => {
@@ -171,7 +189,7 @@ export function CreatePoll({ onCreatePoll, onBack }: CreatePollProps) {
       visibility,
       allow_guest_votes: allowGuestVotes,
       options: validOpts,
-      allowed_users: visibility === "restricted" ? allowedUsers : [], // FIXED ✔
+      allowed_users: allowedUsers.filter(email => email.trim() !== ""),
     });
   };
 
