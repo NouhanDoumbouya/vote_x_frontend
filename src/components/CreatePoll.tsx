@@ -1,264 +1,339 @@
-import { useState } from 'react';
-import { Navbar } from './Navbar';
-import { ArrowLeft, Plus, X, Sparkles, Clock, Tag } from 'lucide-react';
+import { useState } from "react";
+import { Navbar } from "./Navbar";
+import {
+  ArrowLeft,
+  Plus,
+  X,
+  Sparkles,
+  Clock,
+  Tag,
+  Eye,
+  EyeOff,
+  UserPlus,
+  Trash2,
+} from "lucide-react";
 
 type CreatePollProps = {
   onCreatePoll: (pollData: {
     title: string;
     description: string;
-    options: string[];
-    duration: string;
     category: string;
+    expires_at: string | null;
+    visibility: "public" | "private" | "restricted";
+    allow_guest_votes: boolean;
+    options: string[];
+    allowed_users: string[]; // NEW
   }) => void;
   onBack: () => void;
 };
 
+// Convert dropdown duration → ISO timestamp
+function convertDurationToDate(duration: string): string | null {
+  const now = new Date();
+
+  const daysMap: Record<string, number> = {
+    "1 day": 1,
+    "2 days": 2,
+    "3 days": 3,
+    "5 days": 5,
+    "1 week": 7,
+    "2 weeks": 14,
+    "1 month": 30,
+  };
+
+  const addDays = daysMap[duration];
+  if (!addDays) return null;
+
+  now.setDate(now.getDate() + addDays);
+  return now.toISOString();
+}
+
 export function CreatePoll({ onCreatePoll, onBack }: CreatePollProps) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [options, setOptions] = useState(['', '']);
-  const [duration, setDuration] = useState('3 days');
-  const [category, setCategory] = useState('General');
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [options, setOptions] = useState(["", ""]);
+  const [duration, setDuration] = useState("3 days");
+  const [category, setCategory] = useState("General");
+  const [visibility, setVisibility] =
+    useState<"public" | "private" | "restricted">("public");
+  const [allowGuestVotes, setAllowGuestVotes] = useState(false);
+
+  // NEW — allowed user emails
+  const [allowedUsers, setAllowedUsers] = useState<string[]>([]);
+  const [newAllowedEmail, setNewAllowedEmail] = useState("");
+
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const categories = [
-    'General',
-    'Technology',
-    'Education',
-    'Food & Dining',
-    'Events',
-    'Entertainment',
-    'Sports',
-    'Lifestyle',
+    "General",
+    "Technology",
+    "Education",
+    "Food & Dining",
+    "Events",
+    "Entertainment",
+    "Sports",
+    "Lifestyle",
   ];
 
   const durations = [
-    '1 day',
-    '2 days',
-    '3 days',
-    '5 days',
-    '1 week',
-    '2 weeks',
-    '1 month',
+    "1 day",
+    "2 days",
+    "3 days",
+    "5 days",
+    "1 week",
+    "2 weeks",
+    "1 month",
   ];
 
+  /** Add option */
   const addOption = () => {
-    if (options.length < 10) {
-      setOptions([...options, '']);
-    }
+    if (options.length < 10) setOptions([...options, ""]);
   };
 
+  /** Remove option */
   const removeOption = (index: number) => {
-    if (options.length > 2) {
+    if (options.length > 2)
       setOptions(options.filter((_, i) => i !== index));
-    }
   };
 
+  /** Update option */
   const updateOption = (index: number, value: string) => {
-    const newOptions = [...options];
-    newOptions[index] = value;
-    setOptions(newOptions);
+    const newOpts = [...options];
+    newOpts[index] = value;
+    setOptions(newOpts);
   };
 
+  /** Add allowed email */
+  const addAllowedUser = () => {
+    const email = newAllowedEmail.trim().toLowerCase();
+    if (!email) return;
+
+    if (!email.includes("@")) {
+      alert("Please enter a valid email");
+      return;
+    }
+
+    if (allowedUsers.includes(email)) {
+      alert("User already added");
+      return;
+    }
+
+    setAllowedUsers([...allowedUsers, email]);
+    setNewAllowedEmail("");
+  };
+
+  /** Remove allowed email */
+  const removeAllowedUser = (email: string) => {
+    setAllowedUsers(allowedUsers.filter((e) => e !== email));
+  };
+
+  /** Validation */
   const validate = () => {
-    const newErrors: Record<string, string> = {};
+    const errs: Record<string, string> = {};
 
-    if (!title.trim()) {
-      newErrors.title = 'Title is required';
-    } else if (title.length < 5) {
-      newErrors.title = 'Title must be at least 5 characters';
+    if (!title.trim()) errs.title = "Title is required";
+    else if (title.trim().length < 5)
+      errs.title = "Title must be at least 5 characters";
+
+    if (!description.trim())
+      errs.description = "Description is required";
+    else if (description.trim().length < 10)
+      errs.description = "Description must be at least 10 characters";
+
+    const validOpts = options.filter((o) => o.trim());
+    if (validOpts.length < 2)
+      errs.options = "At least 2 options are required";
+
+    const unique = new Set(validOpts.map((o) => o.toLowerCase()));
+    if (unique.size !== validOpts.length)
+      errs.options = "Options must be unique";
+
+    if (visibility === "restricted" && allowedUsers.length === 0) {
+      errs.allowed = "Restricted polls must have at least one allowed user";
     }
 
-    if (!description.trim()) {
-      newErrors.description = 'Description is required';
-    } else if (description.length < 10) {
-      newErrors.description = 'Description must be at least 10 characters';
-    }
-
-    const validOptions = options.filter(opt => opt.trim());
-    if (validOptions.length < 2) {
-      newErrors.options = 'At least 2 options are required';
-    }
-
-    const uniqueOptions = new Set(validOptions.map(opt => opt.toLowerCase()));
-    if (uniqueOptions.size !== validOptions.length) {
-      newErrors.options = 'Options must be unique';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
   };
 
+  /** Submit poll */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (validate()) {
-      const validOptions = options.filter(opt => opt.trim());
-      onCreatePoll({
-        title: title.trim(),
-        description: description.trim(),
-        options: validOptions,
-        duration,
-        category,
-      });
-    }
+    if (!validate()) return;
+
+    const validOpts = options.filter((o) => o.trim());
+
+    onCreatePoll({
+      title: title.trim(),
+      description: description.trim(),
+      category,
+      expires_at: convertDurationToDate(duration),
+      visibility,
+      allow_guest_votes: allowGuestVotes,
+      options: validOpts,
+      allowed_users: visibility === "restricted" ? allowedUsers : [], // FIXED ✔
+    });
   };
+
 
   return (
     <div className="min-h-screen">
-      <Navbar onNavigate={onBack} />
+      <Navbar />
 
       <div className="max-w-4xl mx-auto px-6 py-12">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-8 group"
+          className="flex items-center gap-2 text-slate-400 hover:text-white mb-8 group"
         >
           <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
           <span>Back to Home</span>
         </button>
 
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-white">Create New Poll</h1>
-              <p className="text-slate-400">Gather opinions and make informed decisions</p>
-            </div>
+        {/* HEADER */}
+        <div className="flex items-center gap-2 mb-6">
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center">
+            <Sparkles className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-white">Create New Poll</h1>
+            <p className="text-slate-400">
+              Gather opinions and make informed decisions
+            </p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Poll Title */}
-          <div className="bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-sm rounded-2xl p-8 border border-white/10">
+          {/* TITLE */}
+          <div className="bg-white/[0.05] border border-white/10 rounded-2xl p-8">
             <label className="block text-white mb-3">
               Poll Title <span className="text-red-400">*</span>
             </label>
             <input
-              type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="What's your question?"
               className={`w-full px-4 py-3.5 bg-white/5 border ${
-                errors.title ? 'border-red-500/50' : 'border-white/10'
-              } rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all`}
-              maxLength={100}
+                errors.title ? "border-red-500/50" : "border-white/10"
+              } rounded-xl text-white`}
+              placeholder="What's your question?"
             />
             {errors.title && (
-              <p className="mt-2 text-sm text-red-400">{errors.title}</p>
+              <p className="text-red-400 text-sm mt-2">
+                {errors.title}
+              </p>
             )}
-            <p className="mt-2 text-sm text-slate-400">{title.length}/100 characters</p>
           </div>
 
-          {/* Poll Description */}
-          <div className="bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-sm rounded-2xl p-8 border border-white/10">
+          {/* DESCRIPTION */}
+          <div className="bg-white/[0.05] border border-white/10 rounded-2xl p-8">
             <label className="block text-white mb-3">
               Description <span className="text-red-400">*</span>
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Provide more context about your poll..."
               rows={4}
               className={`w-full px-4 py-3.5 bg-white/5 border ${
-                errors.description ? 'border-red-500/50' : 'border-white/10'
-              } rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all resize-none`}
-              maxLength={500}
+                errors.description
+                  ? "border-red-500/50"
+                  : "border-white/10"
+              } rounded-xl text-white resize-none`}
+              placeholder="Explain what your poll is about..."
             />
             {errors.description && (
-              <p className="mt-2 text-sm text-red-400">{errors.description}</p>
+              <p className="text-red-400 text-sm mt-2">
+                {errors.description}
+              </p>
             )}
-            <p className="mt-2 text-sm text-slate-400">{description.length}/500 characters</p>
           </div>
 
-          {/* Poll Options */}
-          <div className="bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-sm rounded-2xl p-8 border border-white/10">
-            <div className="flex items-center justify-between mb-4">
-              <label className="text-white">
-                Poll Options <span className="text-red-400">*</span>
-              </label>
-              <span className="text-sm text-slate-400">
-                {options.filter(opt => opt.trim()).length} of {options.length} filled
-              </span>
-            </div>
+          {/* OPTIONS */}
+          <div className="bg-white/[0.05] border border-white/10 rounded-2xl p-8">
+            <label className="block text-white mb-4">
+              Poll Options <span className="text-red-400">*</span>
+            </label>
 
-            <div className="space-y-3 mb-4">
-              {options.map((option, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  <div className="flex-1">
-                    <input
-                      type="text"
-                      value={option}
-                      onChange={(e) => updateOption(index, e.target.value)}
-                      placeholder={`Option ${index + 1}`}
-                      className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
-                      maxLength={100}
-                    />
-                  </div>
-                  {options.length > 2 && (
-                    <button
-                      type="button"
-                      onClick={() => removeOption(index)}
-                      className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-all"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
+            {options.map((opt, i) => (
+              <div key={i} className="flex items-center gap-3 mb-3">
+                <input
+                  value={opt}
+                  onChange={(e) => updateOption(i, e.target.value)}
+                  placeholder={`Option ${i + 1}`}
+                  className="flex-1 px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white"
+                />
+                {options.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => removeOption(i)}
+                    className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+            ))}
 
             {errors.options && (
-              <p className="mb-4 text-sm text-red-400">{errors.options}</p>
+              <p className="text-red-400 text-sm mb-2">
+                {errors.options}
+              </p>
             )}
 
             {options.length < 10 && (
               <button
                 type="button"
                 onClick={addOption}
-                className="w-full py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl transition-all flex items-center justify-center gap-2 border border-white/10 border-dashed"
+                className="w-full py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl border-dashed border border-white/10 flex items-center justify-center gap-2"
               >
                 <Plus className="w-5 h-5" />
-                <span>Add Option</span>
+                Add Option
               </button>
             )}
           </div>
 
-          {/* Settings */}
+          {/* CATEGORY + DURATION */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Category */}
-            <div className="bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-sm rounded-2xl p-6 border border-white/10">
+            {/* CATEGORY */}
+            <div className="bg-white/[0.05] border border-white/10 rounded-2xl p-6">
               <label className="block text-white mb-3 flex items-center gap-2">
                 <Tag className="w-5 h-5 text-blue-400" />
                 Category
               </label>
+
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all cursor-pointer"
+                className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white"
               >
                 {categories.map((cat) => (
-                  <option key={cat} value={cat} className="bg-slate-900">
+                  <option
+                    key={cat}
+                    value={cat}
+                    className="bg-slate-900"
+                  >
                     {cat}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Duration */}
-            <div className="bg-gradient-to-br from-white/[0.07] to-white/[0.02] backdrop-blur-sm rounded-2xl p-6 border border-white/10">
+            {/* DURATION */}
+            <div className="bg-white/[0.05] border border-white/10 rounded-2xl p-6">
               <label className="block text-white mb-3 flex items-center gap-2">
                 <Clock className="w-5 h-5 text-purple-400" />
                 Duration
               </label>
+
               <select
                 value={duration}
                 onChange={(e) => setDuration(e.target.value)}
-                className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all cursor-pointer"
+                className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white"
               >
                 {durations.map((dur) => (
-                  <option key={dur} value={dur} className="bg-slate-900">
+                  <option
+                    key={dur}
+                    value={dur}
+                    className="bg-slate-900"
+                  >
                     {dur}
                   </option>
                 ))}
@@ -266,39 +341,124 @@ export function CreatePoll({ onCreatePoll, onBack }: CreatePollProps) {
             </div>
           </div>
 
-          {/* Preview */}
-          <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 backdrop-blur-sm rounded-2xl p-6 border border-blue-500/20">
-            <h3 className="text-white mb-3">Preview</h3>
-            <div className="space-y-2">
-              <p className="text-white">{title || 'Your poll title will appear here'}</p>
-              <p className="text-slate-400 text-sm">
-                {description || 'Your poll description will appear here'}
-              </p>
-              <div className="flex items-center gap-4 text-sm text-slate-400 mt-3">
-                <span className="flex items-center gap-1">
-                  <Tag className="w-4 h-4" />
-                  {category}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
-                  {duration}
-                </span>
-              </div>
+          {/* VISIBILITY + GUEST + ALLOWED USERS */}
+          <div className="bg-white/[0.05] border border-white/10 rounded-2xl p-6 space-y-6">
+            {/* VISIBILITY */}
+            <div>
+              <label className="block text-white mb-3 flex items-center gap-2">
+                <Eye className="w-5 h-5 text-blue-300" />
+                Visibility
+              </label>
+
+              <select
+                value={visibility}
+                onChange={(e) =>
+                  setVisibility(
+                    e.target.value as "public" | "private" | "restricted"
+                  )
+                }
+                className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white"
+              >
+                <option value="public" className="bg-slate-900">
+                  Public (everyone)
+                </option>
+                <option value="private" className="bg-slate-900">
+                  Private (only you)
+                </option>
+                <option value="restricted" className="bg-slate-900">
+                  Restricted (allowed users only)
+                </option>
+              </select>
             </div>
+
+            {/* GUEST VOTES */}
+            <div>
+              <label className="block text-white mb-3 flex items-center gap-2">
+                <EyeOff className="w-5 h-5 text-green-300" />
+                Allow Guest Votes
+              </label>
+              <input
+                type="checkbox"
+                checked={allowGuestVotes}
+                onChange={(e) =>
+                  setAllowGuestVotes(e.target.checked)
+                }
+                className="w-5 h-5 accent-blue-500 cursor-pointer"
+              />
+            </div>
+
+            {/* ALLOWED USERS — ONLY WHEN RESTRICTED */}
+            {visibility === "restricted" && (
+              <div className="bg-white/5 border border-white/10 p-4 rounded-xl">
+                <h3 className="text-white mb-3 flex items-center gap-2">
+                  Allowed Users
+                </h3>
+
+                {/* Existing allowed emails */}
+                {allowedUsers.length > 0 && (
+                  <ul className="space-y-2 mb-3">
+                    {allowedUsers.map((email) => (
+                      <li
+                        key={email}
+                        className="flex items-center justify-between bg-white/5 p-3 rounded-xl"
+                      >
+                        <span className="text-white">{email}</span>
+
+                        <button
+                          onClick={() => removeAllowedUser(email)}
+                          className="text-red-400 hover:text-red-300"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {/* Add allowed user */}
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    placeholder="Enter email"
+                    value={newAllowedEmail}
+                    onChange={(e) =>
+                      setNewAllowedEmail(e.target.value)
+                    }
+                    className="flex-1 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={addAllowedUser}
+                    className="bg-blue-600 hover:bg-blue-500 text-white px-4 rounded-xl flex items-center gap-2"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    Add
+                  </button>
+                </div>
+
+                {errors.allowed && (
+                  <p className="text-red-400 text-sm mt-2">
+                    {errors.allowed}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Submit Button */}
+          {/* ACTIONS */}
           <div className="flex gap-4">
             <button
               type="button"
               onClick={onBack}
-              className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-white rounded-xl transition-all border border-white/10"
+              className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-white rounded-xl"
             >
               Cancel
             </button>
+
             <button
               type="submit"
-              className="flex-1 py-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-xl transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-[1.02]"
+              className="flex-1 py-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-xl shadow-lg"
             >
               Create Poll
             </button>

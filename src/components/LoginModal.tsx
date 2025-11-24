@@ -5,7 +5,7 @@ import { loginUser, registerUser } from '../services/auth';
 type LoginModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;  // <-- important for navbar state
+  onSuccess: () => void;
 };
 
 export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
@@ -18,7 +18,6 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
 
   if (!isOpen) return null;
 
-  // 🚀 Handles Login + Signup
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -35,15 +34,21 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
           role: "voter",
         });
 
-        // auto-login user after sign up
         await loginUser({ email, password });
       }
 
-      onSuccess(); // tells navbar user is logged in
-      onClose();   // close modal
+      onSuccess();
+      onClose();
     } catch (err: any) {
       console.log(err);
-      setError("Invalid credentials or server error.");
+
+      if (err.response?.data?.detail) {
+        setError(err.response.data.detail);
+      } else if (err.response?.data?.errors) {
+        setError(Object.values(err.response.data.errors).join(" "));
+      } else {
+        setError("Invalid credentials or server error.");
+      }
     }
 
     setIsLoading(false);
@@ -55,14 +60,10 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Modal */}
       <div className="relative w-full max-w-md bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
         
-        {/* Header */}
         <div className="relative p-6 border-b border-white/10">
           <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10" />
           <div className="relative flex items-center justify-between">
@@ -76,23 +77,21 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
                   : 'Join us and start creating polls'}
               </p>
             </div>
+
             <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg">
               <X className="w-5 h-5 text-slate-400" />
             </button>
           </div>
         </div>
 
-        {/* Content */}
         <div className="p-6">
 
-          {/* ERRORS */}
           {error && (
             <p className="text-red-400 bg-red-400/10 border border-red-400/20 p-2 rounded mb-4 text-sm">
               {error}
             </p>
           )}
 
-          {/* Social Login */}
           <div className="space-y-3 mb-6">
             <button
               onClick={() => handleSocialLogin('Google')}
@@ -111,7 +110,6 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
             </button>
           </div>
 
-          {/* Divider */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10" /></div>
             <div className="relative flex justify-center text-sm">
@@ -119,7 +117,6 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
             </div>
           </div>
 
-          {/* FORM */}
           <form onSubmit={handleSubmit} className="space-y-4">
 
             {mode === "signup" && (
@@ -160,8 +157,8 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input
                   required
-                  minLength={6}
                   type="password"
+                  minLength={mode === "signup" ? 6 : undefined}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -170,19 +167,23 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
               </div>
             </div>
 
-            {/* SUBMIT BUTTON */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl"
+              className={`w-full py-3.5 rounded-xl text-white ${
+                isLoading
+                  ? "bg-blue-400 cursor-not-allowed"
+                  : "bg-gradient-to-r from-blue-600 to-blue-500"
+              }`}
             >
               {isLoading ? "Processing..." : mode === "login" ? "Sign In" : "Create Account"}
             </button>
           </form>
 
-          {/* Toggle Mode */}
           <div className="mt-6 text-center text-sm">
-            <span className="text-slate-400">{mode === "login" ? "Don't have an account?" : "Already have an account?"}</span>{" "}
+            <span className="text-slate-400">
+              {mode === "login" ? "Don't have an account?" : "Already have an account?"}
+            </span>{" "}
             <button
               onClick={() => setMode(mode === "login" ? "signup" : "login")}
               className="text-blue-400"
