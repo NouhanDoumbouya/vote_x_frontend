@@ -35,7 +35,7 @@ src/
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/<your-username>/vote-x-frontend.git
+git clone https://github.com/NouhanDoumbouya/vote-x-frontend.git
 cd vote-x-frontend
 ```
 
