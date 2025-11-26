@@ -35,7 +35,7 @@ src/
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/NouhanDoumbouya/vote-x-frontend.git
+git clone https://github.com/NouhanDoumbouya/vote_x_frontend.git
 cd vote-x-frontend
 ```
 
@@ -60,6 +60,11 @@ VITE_API_URL=<your-backend-url>
 ```
 
 ---
+
+### 4. View Deployed version on Vercel
+```bash
+https://vote-x-frontend.vercel.app
+```
 
 ## Tech Stack
 
